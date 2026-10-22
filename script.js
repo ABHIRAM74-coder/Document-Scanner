@@ -2,9 +2,14 @@
 // CONFIGURATION
 // ============================================================
 
+// Local FastAPI backend.
+// Later, replace this with the temporary HTTPS tunnel URL
+// when testing the frontend through AWS Amplify.
+const API_BASE = 'http://127.0.0.1:8000';
+
 const MAX_BYTES = 10 * 1024 * 1024;
 
-const ALLOWED_EXTENSIONS = new Set([
+const allowed = new Set([
     'pdf',
     'doc',
     'docx',
@@ -43,7 +48,6 @@ let lastResult = null;
 // ============================================================
 
 function status(message, error = false) {
-
     statusBox.textContent = message;
 
     statusBox.classList.toggle(
@@ -68,7 +72,7 @@ function validate(file) {
         .pop()
         .toLowerCase();
 
-    if (!ALLOWED_EXTENSIONS.has(extension)) {
+    if (!allowed.has(extension)) {
         return 'Unsupported file type.';
     }
 
@@ -118,14 +122,13 @@ function selected() {
 
     status(error || '');
 
+    // Hide previous results
     resultSection.hidden = true;
-
-    lastResult = null;
 }
 
 
 // ============================================================
-// FILE INPUT
+// FILE INPUT EVENT
 // ============================================================
 
 fileInput.addEventListener(
@@ -179,22 +182,21 @@ drop.addEventListener(
         const files =
             event.dataTransfer.files;
 
-        if (!files.length) {
-            return;
+        if (files.length) {
+
+            fileInput.files = files;
+
+            selected();
         }
-
-        fileInput.files = files;
-
-        selected();
     }
 );
 
 
 // ============================================================
-// CREATE FIELD
+// CREATE FIELD CARD
 // ============================================================
 
-function createField(label, value) {
+function field(label, value) {
 
     const card =
         document.createElement('div');
@@ -249,7 +251,7 @@ function createField(label, value) {
 
 
 // ============================================================
-// RENDER RESULT
+// RENDER BEDROCK RESULT
 // ============================================================
 
 function render(data) {
@@ -277,7 +279,6 @@ function render(data) {
 
 
     if (data.notes) {
-
         summary +=
             ` · ${data.notes}`;
     }
@@ -294,18 +295,16 @@ function render(data) {
     fieldsBox.replaceChildren();
 
 
-    const fields =
-        data.fields || {};
-
-
-    Object.entries(fields).forEach(
+    Object.entries(
+        data.fields || {}
+    ).forEach(
         ([key, value]) => {
 
             const label = key
                 .replaceAll('_', ' ');
 
             fieldsBox.appendChild(
-                createField(
+                field(
                     label,
                     value
                 )
@@ -321,13 +320,9 @@ function render(data) {
     tablesBox.replaceChildren();
 
 
-    const tables =
-        Array.isArray(data.tables)
-            ? data.tables
-            : [];
-
-
-    tables.forEach(
+    (
+        data.tables || []
+    ).forEach(
         (tableData, index) => {
 
             const wrapper =
@@ -337,10 +332,7 @@ function render(data) {
                 'table-scroll';
 
 
-            // ------------------------------------------------
-            // TABLE TITLE
-            // ------------------------------------------------
-
+            // Table title
             const heading =
                 document.createElement('h4');
 
@@ -353,20 +345,9 @@ function render(data) {
             );
 
 
-            // ------------------------------------------------
-            // CREATE TABLE
-            // ------------------------------------------------
-
+            // Actual table
             const table =
                 document.createElement('table');
-
-
-            const headers =
-                Array.isArray(
-                    tableData.headers
-                )
-                    ? tableData.headers
-                    : [];
 
 
             const rows =
@@ -377,14 +358,19 @@ function render(data) {
                     : [];
 
 
+            const headers =
+                Array.isArray(
+                    tableData.headers
+                )
+                    ? tableData.headers
+                    : [];
+
+
             // ------------------------------------------------
-            // HEADERS
+            // TABLE HEADERS
             // ------------------------------------------------
 
             if (headers.length) {
-
-                const thead =
-                    document.createElement('thead');
 
                 const headerRow =
                     document.createElement('tr');
@@ -397,9 +383,7 @@ function render(data) {
                             document.createElement('th');
 
                         th.textContent =
-                            String(
-                                header ?? ''
-                            );
+                            String(header);
 
                         headerRow.appendChild(
                             th
@@ -408,23 +392,15 @@ function render(data) {
                 );
 
 
-                thead.appendChild(
-                    headerRow
-                );
-
                 table.appendChild(
-                    thead
+                    headerRow
                 );
             }
 
 
             // ------------------------------------------------
-            // ROWS
+            // TABLE ROWS
             // ------------------------------------------------
-
-            const tbody =
-                document.createElement('tbody');
-
 
             rows.forEach(
                 row => {
@@ -457,15 +433,10 @@ function render(data) {
                     );
 
 
-                    tbody.appendChild(
+                    table.appendChild(
                         tableRow
                     );
                 }
-            );
-
-
-            table.appendChild(
-                tbody
             );
 
 
@@ -501,15 +472,14 @@ scanButton.addEventListener(
         const file =
             fileInput.files[0];
 
-
-        const validationError =
+        const error =
             validate(file);
 
 
-        if (validationError) {
+        if (error) {
 
             status(
-                validationError,
+                error,
                 true
             );
 
@@ -519,23 +489,21 @@ scanButton.addEventListener(
 
         scanButton.disabled = true;
 
-        resultSection.hidden = true;
-
-
         status(
             'Reading document and analyzing with Amazon Bedrock…'
         );
+
+        resultSection.hidden = true;
 
 
         try {
 
             // ------------------------------------------------
-            // PREPARE FILE
+            // CREATE UPLOAD REQUEST
             // ------------------------------------------------
 
             const body =
                 new FormData();
-
 
             body.append(
                 'file',
@@ -544,17 +512,12 @@ scanButton.addEventListener(
 
 
             // ------------------------------------------------
-            // SEND DOCUMENT
-            //
-            // No API_BASE is used.
-            //
-            // AWS Amplify will receive /api/scan and later
-            // forward it to our Python backend.
+            // SEND DOCUMENT TO FASTAPI
             // ------------------------------------------------
 
             const response =
                 await fetch(
-                    '/api/scan',
+                    `${API_BASE}/scan`,
                     {
                         method: 'POST',
                         body: body
@@ -563,34 +526,18 @@ scanButton.addEventListener(
 
 
             // ------------------------------------------------
-            // READ RESPONSE SAFELY
+            // READ RESPONSE
             // ------------------------------------------------
 
-            let payload;
+            const payload =
+                await response.json();
 
-
-            try {
-
-                payload =
-                    await response.json();
-
-            } catch {
-
-                throw new Error(
-                    'The backend returned an invalid response.'
-                );
-            }
-
-
-            // ------------------------------------------------
-            // HANDLE BACKEND ERRORS
-            // ------------------------------------------------
 
             if (!response.ok) {
 
                 throw new Error(
                     payload.detail ||
-                    'Document scan failed.'
+                    'Scan failed'
                 );
             }
 
@@ -630,7 +577,7 @@ scanButton.addEventListener(
 
 
 // ============================================================
-// DOWNLOAD JSON
+// DOWNLOAD JSON RESULT
 // ============================================================
 
 downloadButton.addEventListener(
@@ -638,12 +585,6 @@ downloadButton.addEventListener(
     () => {
 
         if (!lastResult) {
-
-            status(
-                'No scan result is available to download.',
-                true
-            );
-
             return;
         }
 
@@ -682,24 +623,14 @@ downloadButton.addEventListener(
             'document-extraction.json';
 
 
-        document.body.appendChild(
-            link
-        );
-
-
         link.click();
-
-
-        link.remove();
 
 
         setTimeout(
             () => {
-
                 URL.revokeObjectURL(
                     url
                 );
-
             },
             1000
         );
