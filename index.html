@@ -1,0 +1,134 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Document AI Scanner</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <main class="shell">
+
+        <!-- Header Section -->
+        <header>
+            <span class="eyebrow">
+                AMAZON BEDROCK · PROTOTYPE
+            </span>
+
+            <h1>Document AI Scanner</h1>
+
+            <p>
+                Upload an Indian government, educational,
+                financial, medical, or other document to
+                extract structured information.
+            </p>
+        </header>
+
+
+        <!-- Document Upload Section -->
+        <section class="panel">
+
+            <label for="file" class="drop" id="drop">
+
+                <strong>
+                    Choose a document or drop it here
+                </strong>
+
+                <span>
+                    PDF, DOC, DOCX, PPT, PPTX, XLSX,
+                    TXT, JPG, JPEG, PNG · 10 MB maximum
+                </span>
+
+                <input
+                    id="file"
+                    type="file"
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,.xlsx,.txt,.jpg,.jpeg,.png"
+                >
+
+            </label>
+
+
+            <!-- Upload Actions -->
+            <div class="actions">
+
+                <span id="filename">
+                    No file selected
+                </span>
+
+                <button id="scan" disabled>
+                    Scan document
+                </button>
+
+            </div>
+
+
+            <!-- Processing Status -->
+            <div
+                id="status"
+                role="status"
+                aria-live="polite">
+            </div>
+
+        </section>
+
+
+        <!-- Document Extraction Results -->
+        <section
+            class="panel"
+            id="result"
+            hidden
+        >
+
+            <!-- Result Header -->
+            <div class="result-head">
+
+                <h2>Extracted information</h2>
+
+                <button
+                    id="download"
+                    class="secondary"
+                >
+                    Download JSON
+                </button>
+
+            </div>
+
+
+            <!-- Document Summary -->
+            <div id="summary"></div>
+
+
+            <!-- Extracted Fields -->
+            <h3>Fields</h3>
+
+            <div id="fields"></div>
+
+
+            <!-- Extracted Tables -->
+            <h3>Tables</h3>
+
+            <div id="tables"></div>
+
+
+            <!-- Raw Extracted Text -->
+            <h3>Extracted text</h3>
+
+            <pre id="raw"></pre>
+
+        </section>
+
+    </main>
+
+
+    <!-- JavaScript -->
+    <script src="script.js"></script>
+
+</body>
+
+</html>
